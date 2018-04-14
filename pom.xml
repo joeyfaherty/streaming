@@ -10,10 +10,6 @@
 
     <properties>
         <scala.main>2.11</scala.main>
-        <scala.version>2.11.12</scala.version>
-        <scalatest.version>3.0.1</scalatest.version>
-
-        <!-- Spark Framework -->
         <spark.version>2.2.1</spark.version>
     </properties>
 
@@ -21,22 +17,22 @@
         <dependency>
             <groupId>org.apache.spark</groupId>
             <artifactId>spark-core_${scala.main}</artifactId>
-            <version>2.2.1</version>
+            <version>${spark.version}</version>
         </dependency>
         <dependency>
             <groupId>org.apache.spark</groupId>
             <artifactId>spark-sql_${scala.main}</artifactId>
-            <version>2.2.1</version>
+            <version>${spark.version}</version>
         </dependency>
         <dependency>
             <groupId>org.apache.spark</groupId>
             <artifactId>spark-streaming_${scala.main}</artifactId>
-            <version>2.2.1</version>
+            <version>${spark.version}</version>
         </dependency>
         <dependency>
             <groupId>org.apache.spark</groupId>
-            <artifactId>spark-streaming-kafka-0-10_2.11</artifactId>
-            <version>2.2.1</version>
+            <artifactId>spark-streaming-kafka-0-10_${scala.main}</artifactId>
+            <version>${spark.version}</version>
         </dependency>
     </dependencies>
 </project>

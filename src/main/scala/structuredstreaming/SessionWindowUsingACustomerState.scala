@@ -6,71 +6,22 @@ import org.apache.spark.sql.{DataFrame, Dataset, KeyValueGroupedDataset, SparkSe
 
 import scala.util.Try
 
-/**
-  * run: nc -lk 9999
-  *
-  * session1,100
-  * session2,200
-  *
-  *
--------------------------------------------
-Batch: 0
--------------------------------------------
-+--------+--------+-------+
-|      id|totalSum|expired|
-+--------+--------+-------+
-|session1|   100.0|  false|
-|session2|   200.0|  false|
-+--------+--------+-------+
-  *
-  * session1,200
-  *
-  * -------------------------------------------
-Batch: 1
--------------------------------------------
-+--------+--------+-------+
-|      id|totalSum|expired|
-+--------+--------+-------+
-|session1|   300.0|  false|
-+--------+--------+-------+
-  *
-  * session1,200,end
-  *
-  * -------------------------------------------
-Batch: 2
--------------------------------------------
-+--------+--------+-------+
-|      id|totalSum|expired|
-+--------+--------+-------+
-|session1|   500.0|   true|
-+--------+--------+-------+
-  *
-  * session1,100
-  * session2,200
-  *
-  * -------------------------------------------
-Batch: 3
--------------------------------------------
-+--------+--------+-------+
-|      id|totalSum|expired|
-+--------+--------+-------+
-|session1|   100.0|  false|
-|session2|   400.0|  false|
-+--------+--------+-------+
-  *
-  * From the output you can observe that session1 is started from scratch and session2 is updated.
-  */
 object SessionWindowUsingACustomerState {
 
-  val exampleJson = """"{"id":"A1234", "email":"blahblah@hotmail.com"}"""
+  val sessionJson =
+    """
+      |{
+      |  "sessionId": "session1",
+      |  "winAmount": 100,
+      |  "deposit": false
+      |}
+      |""".stripMargin
 
-  case class Customer(id: String, emailAddress: String)
+  case class Transaction(sessionId: String, winAmount: Double, deposit: Boolean)
 
-  case class Session(sessionId: String, value: Double, endSignal: Option[String])
+  case class SessionTrackingValue(totalSum: Double)
 
-  case class SessionInfo(totalSum: Double)
-
-  case class SessionUpdate(id: String, totalSum: Double, expired: Boolean)
+  case class SessionUpdate(sessionId: String, currentBalance: Double, depositCurrentBalance: Boolean)
 
   def main(args: Array[String]): Unit = {
 
@@ -83,9 +34,15 @@ object SessionWindowUsingACustomerState {
       .appName(getClass.getName)
       .getOrCreate()
 
-    // Create DataFrame representing the stream of input lines from connection to localhost:9999
-    val stream: DataFrame = spark.readStream
-      // socket input data source format
+    /*
+     * From a terminal, run:
+     *
+     * nc -lc 9999
+     *
+     * as input for the socket stream
+     */
+    val socketStream: DataFrame = spark.readStream
+      // socket as stream input
       .format("socket")
       // connect to socket port localhost:9999 waiting for incoming stream
       .option("host", "localhost")
@@ -93,16 +50,16 @@ object SessionWindowUsingACustomerState {
       .load()
 
     import spark.implicits._
-    val socketDs: Dataset[String] = stream.as[String]
-    // events
-    val events: Dataset[Session] = socketDs.map(line => {
-      val columns = line.split(",")
-      val endSignal = Try(Some(columns(2))).getOrElse(None)
-      Session(columns(0), columns(1).toDouble, endSignal)
+
+    val transactions = socketStream
+      .as[String]
+      .map(inputLine => {
+      val fields = inputLine.split(",")
+      Transaction(fields(0), fields(1).toDouble, Try(fields(2).toBoolean).getOrElse(false))
     })
 
-    // create a DS of kv pairs (sessionId, Session)
-    val idSessionKv: KeyValueGroupedDataset[String, Session] = events.groupByKey(x => x.sessionId)
+    // create a DS of kv pairs (sessionId, Transaction)
+    val idSessionKv: KeyValueGroupedDataset[String, Transaction] = transactions.groupByKey(x => x.sessionId)
 
 
     /*
@@ -113,29 +70,34 @@ object SessionWindowUsingACustomerState {
      * We use GroupStateTimeout.NoTimeout() to indicate no timeout as we want the session to close after explicit user input.
      * Other timeouts can also be specified, for example if you wish to close state after this timeout
      */
-    val sessionUpdates: Dataset[SessionUpdate] = idSessionKv.mapGroupsWithState[SessionInfo, SessionUpdate](GroupStateTimeout.NoTimeout()) {
+    val sessionUpdates: Dataset[SessionUpdate] = idSessionKv.mapGroupsWithState[SessionTrackingValue, SessionUpdate](GroupStateTimeout.NoTimeout()) {
       // mapGroupsWithState: key: K, it: Iterator[V], s: GroupState[S]
-      case (sessionId: String, eventsIter: Iterator[Session], state: GroupState[SessionInfo]) => {
+      case (sessionId: String, eventsIter: Iterator[Transaction], state: GroupState[SessionTrackingValue]) => {
         val events = eventsIter.toSeq
         val updatedSession =
           if (state.exists) {
             val existingState = state.get
-            val updatedEvents = SessionInfo(existingState.totalSum + events.map(_.value).sum)
+            val updatedEvents = SessionTrackingValue(existingState.totalSum + events.map(_.winAmount).sum)
             updatedEvents
           }
           else {
-            SessionInfo(events.map(event => event.value).sum)
+            SessionTrackingValue(events.map(event => event.winAmount).sum)
           }
 
         state.update(updatedSession)
 
-        val isEndSignal = events.exists(_.endSignal.isDefined)
-        if (isEndSignal) {
+        val toCloseSession = events.exists(_.deposit)
+
+        // when there is an deposit in the event, close the session by removing the state
+        if (toCloseSession) {
+          // here we could perform a specific action when we receive the end of the session signal (store, send, update other state)
+          // in this case we would just deposit the current balance to a data store
+          // state.save() .. TODO unimplemented for this example
           state.remove()
-          SessionUpdate(sessionId, updatedSession.totalSum, expired = true)
+          SessionUpdate(sessionId, updatedSession.totalSum, depositCurrentBalance = true)
         }
         else {
-          SessionUpdate(sessionId, updatedSession.totalSum, expired = false)
+          SessionUpdate(sessionId, updatedSession.totalSum, depositCurrentBalance = false)
         }
       }
     }
