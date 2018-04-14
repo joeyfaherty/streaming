@@ -6,7 +6,7 @@ import org.apache.spark.sql.{DataFrame, Dataset, KeyValueGroupedDataset, SparkSe
 
 import scala.util.Try
 
-object SessionWindowUsingACustomerState {
+object SessionWindowUsingACustomState {
 
   val sessionJson =
     """
