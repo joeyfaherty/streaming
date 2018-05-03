@@ -11,6 +11,8 @@
     <properties>
         <scala.main>2.11</scala.main>
         <spark.version>2.2.1</spark.version>
+        <scalatest.version>3.0.5</scalatest.version>
+        <kafka.version>0.10.2.0</kafka.version>
     </properties>
 
     <dependencies>
@@ -29,10 +31,40 @@
             <artifactId>spark-streaming_${scala.main}</artifactId>
             <version>${spark.version}</version>
         </dependency>
-        <dependency>
+<!--        <dependency>
             <groupId>org.apache.spark</groupId>
             <artifactId>spark-streaming-kafka-0-10_${scala.main}</artifactId>
             <version>${spark.version}</version>
+        </dependency>-->
+
+        <dependency>
+            <groupId>org.apache.spark</groupId>
+            <artifactId>spark-sql-kafka-0-10_${scala.main}</artifactId>
+            <version>${spark.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.kafka</groupId>
+            <artifactId>kafka_${scala.main}</artifactId>
+            <version>${kafka.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.kafka</groupId>
+            <artifactId>kafka-clients</artifactId>
+            <version>${kafka.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.scalatest</groupId>
+            <artifactId>scalatest_${scala.main}</artifactId>
+            <version>${scalatest.version}</version>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.elasticsearch</groupId>
+            <artifactId>elasticsearch-spark-20_2.11</artifactId>
+            <version>6.2.4</version>
         </dependency>
     </dependencies>
 </project>

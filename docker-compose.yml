@@ -1,0 +1,36 @@
+---
+version: '3'
+
+services:
+
+  elasticsearch-joey:
+      hostname: elasticsearch-joey
+      container_name: elasticsearch-joey
+      image: docker.elastic.co/elasticsearch/elasticsearch:6.2.4
+      ports:
+        - 9200:9200
+        - 9300:9300
+
+  zookeeper-joey:
+    hostname: zookeeper-joey
+    container_name: zookeeper-joey
+    image: zookeeper
+    ports:
+      - 2181:2181
+      - 2888:2888
+      - 3888:3888
+
+  kafka-joey:
+    hostname: kafka-joey
+    container_name: kafka-joey
+    build:
+      context: docker/kafka
+      dockerfile: Dockerfile
+    ports:
+      - 9092:9092
+    depends_on:
+      - zookeeper-joey
+
+networks:
+  default:
+    driver: bridge
