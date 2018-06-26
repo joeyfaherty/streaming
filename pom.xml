@@ -66,5 +66,18 @@
             <artifactId>elasticsearch-spark-20_2.11</artifactId>
             <version>6.2.4</version>
         </dependency>
+        <dependency>
+            <groupId>org.apache.hbase</groupId>
+            <artifactId>hbase-spark</artifactId>
+            <version>2.0.0-alpha4</version>
+        </dependency>
+
+        <!-- HTTP -->
+        <dependency>
+            <groupId>org.scalaj</groupId>
+            <artifactId>scalaj-http_2.11</artifactId>
+            <version>2.4.0</version>
+        </dependency>
+
     </dependencies>
 </project>
